@@ -1,0 +1,48 @@
+@host = http://localhost:5080
+@aliceIncidentId = 20000000-0000-0000-0000-000000000001
+
+### 1. Тест: Анонімний запит (без login)
+GET {{host}}/api/incidents/{{aliceIncidentId}}
+Accept: application/json
+
+### 2. Login як Alice
+# @name loginAlice
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "userName": "alice",
+  "password": "{{$processEnv SeedUsers__Password}}"
+}
+
+### 3. Тест: Alice читає власний інцидент
+GET {{host}}/api/incidents/{{aliceIncidentId}}
+Accept: application/json
+
+### 4. Login як Bob
+# @name loginBob
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "userName": "bob",
+  "password": "{{$processEnv SeedUsers__Password}}"
+}
+
+### 5. Тест: Bob спробує прочитати чужий інцидент (Alice)
+GET {{host}}/api/incidents/{{aliceIncidentId}}
+Accept: application/json
+
+### 6. Login як Morgan (Analyst)
+# @name loginMorgan
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "userName": "morgan",
+  "password": "{{$processEnv SeedUsers__Password}}"
+}
+
+### 7. Тест: Morgan читає інцидент Alice (для аналізу)
+GET {{host}}/api/incidents/{{aliceIncidentId}}
+Accept: application/json

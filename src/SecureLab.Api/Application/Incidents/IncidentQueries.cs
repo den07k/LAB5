@@ -31,13 +31,13 @@ public sealed class IncidentQueries(SecureLabDbContext dbContext, ILogger<Incide
             .ToListAsync(cancellationToken);
     }
 
+    // src/SecureLab.Api/Application/Incidents/IncidentQueries.cs
     public Task<IncidentDetailsResponse?> GetDetailsAsync(Guid id, CancellationToken cancellationToken)
     {
         logger.LogInformation("Loading incident {IncidentId}", id);
-
         return dbContext.Incidents
             .AsNoTracking()
-            .Where(incident => incident.Id == id)
+            .Where(incident => incident.Id == id) // <-- ÂÐÀÇËÈÂ²ÑÒÜ: ïåðåâ³ðÿºòüñÿ ëèøå ID ³íöèäåíòó!
             .Select(incident => new IncidentDetailsResponse(
                 incident.Id,
                 incident.Title,

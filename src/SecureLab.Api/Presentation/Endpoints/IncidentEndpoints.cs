@@ -1,32 +1,24 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using SecureLab.Api.Application.Incidents;
-using SecureLab.Api.Data.Entities;
-using SecureLab.Api.Presentation.Contracts;
+using SecureLab.Api.Data.Entities; // <-- ДОДАНО ДЛЯ IncidentStatus
 
 namespace SecureLab.Api.Presentation.Endpoints;
 
 public static class IncidentEndpoints
 {
-    public static IEndpointRouteBuilder MapIncidentEndpoints(this IEndpointRouteBuilder endpoints)
+    public static IEndpointRouteBuilder MapIncidentEndpoints(this IEndpointRouteBuilder routes)
     {
-        var group = endpoints.MapGroup("/api/incidents")
-            .WithTags("Incidents");
+        var group = routes.MapGroup("/api/incidents");
 
-        group.MapGet("/", GetListAsync)
-            .WithName("GetIncidents")
-            .Produces<IReadOnlyList<IncidentListItemResponse>>()
-            .ProducesValidationProblem();
+        group.MapGet("/", GetListAsync);
+        group.MapGet("/{id:guid}", GetDetailsAsync);
 
-        group.MapGet("/{id:guid}", GetDetailsAsync)
-            .WithName("GetIncidentDetails")
-            .Produces<IncidentDetailsResponse>()
-            .ProducesProblem(StatusCodes.Status404NotFound);
-
-        // ДОДАНО ЗГІДНО ЗІ ЗВІТОМ:
-        group.MapGet("/severity-summary", GetSeveritySummaryAsync)
-            .WithName("GetIncidentSeveritySummary")
-            .Produces<IReadOnlyList<IncidentSeveritySummaryResponse>>();
-
-        return endpoints;
+        return routes;
     }
 
     private static async Task<IResult> GetListAsync(
@@ -35,21 +27,13 @@ public static class IncidentEndpoints
         CancellationToken cancellationToken)
     {
         IncidentStatus? parsedStatus = null;
-        if (status is not null)
+        if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<IncidentStatus>(status, true, out var parsed))
         {
-            if (!Enum.TryParse<IncidentStatus>(status, ignoreCase: true, out var candidate)
-                || !Enum.IsDefined(candidate))
-            {
-                return Results.ValidationProblem(new Dictionary<string, string[]>
-                {
-                    ["status"] = ["Допустимі значення: New, Triaged, InProgress, Resolved, Closed."]
-                });
-            }
-
-            parsedStatus = candidate;
+            parsedStatus = parsed;
         }
 
-        return Results.Ok(await queries.GetListAsync(parsedStatus, cancellationToken));
+        var incidents = await queries.GetListAsync(parsedStatus, cancellationToken);
+        return Results.Ok(incidents);
     }
 
     private static async Task<IResult> GetDetailsAsync(
@@ -58,20 +42,8 @@ public static class IncidentEndpoints
         CancellationToken cancellationToken)
     {
         var incident = await queries.GetDetailsAsync(id, cancellationToken);
-        return incident is null
-            ? Results.Problem(
-                title: "Інцидент не знайдено",
-                detail: $"Інцидент '{id}' не існує.",
-                statusCode: StatusCodes.Status404NotFound)
-            : Results.Ok(incident);
-    }
-
-    // ДОДАНО ЗГІДНО ЗІ ЗВІТОМ:
-    private static async Task<IResult> GetSeveritySummaryAsync(
-        IncidentQueries queries,
-        CancellationToken cancellationToken)
-    {
-        var summary = await queries.GetSeveritySummaryAsync(cancellationToken);
-        return Results.Ok(summary);
+        return incident is not null
+            ? Results.Ok(incident)
+            : Results.NotFound();
     }
 }
